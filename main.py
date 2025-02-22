@@ -9,22 +9,39 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
 
-df1 = pd.read_csv("descriptions.csv", on_bad_lines="skip")
+import csv
+import re
+
+df1 = pd.read_csv("descriptions.csv", on_bad_lines="skip") #skip glitched lines
 df1.info()
-print(df1["app_id"].unique())
+print(df1["app_id"].unique()) #view the unique values for debugging the different languages
 df1 = df1.dropna(ignore_index=True)
 df1 = df1.drop_duplicates (ignore_index=True)
+df1 = df1.drop(columns= "summary")
+df1 = df1.drop(columns= "about")
+df1["extensive"] = df1["extensive"].str.replace('<br />', ' ', regex=True)
+df1["extensive"] = df1["extensive"].str.replace(r'<p \>', ' ', regex=True)
+df1["extensive"] = df1["extensive"].str.replace(r'\\\\', ' ', regex=True)
+#CLEANING out extra line breaks so that columns are properly organized and not improperly split because of line breaks
+df1["extensive"] = df1["extensive"].str.replace(r'\s+', ' ', regex=True).str.strip() #replace empty spaces with 1 space to solve further formatting issues
+
+df1['app_id'] = pd.to_numeric(df1['app_id'], errors='coerce')
+# drop rows where app id is number and replace with null value
+df1 = df1.dropna(subset=['app_id']) 
+
+df1 = df1[df1['extensive'].apply(lambda x: x.encode('ascii', 'ignore').decode('ascii') == x)] #drop non ascii values
+
 df1.info()
+
 
 df2 = pd.read_csv("genres.csv")
 print(df2["app_id"].unique())
 df2.info()
 df2 = df2.dropna(ignore_index=True)
 df2 = df2.drop_duplicates (ignore_index=True)
+df2 = df2.drop(columns= "app_id")
 df2.info()
-#df1["app_id"]=df1["app_id"].astype(int)
 
-#df = df1.join(df2,on="app_id")
 df = pd.concat([df1,df2],axis=1)
 print(df)
 df.info()
@@ -93,3 +110,10 @@ print(f'Unique vals in genre col\n{df["genre"].unique()}')
 
 df.to_csv("cleaned_dataset.csv")
 
+df.replace('\\N', np.nan, inplace=True) #replace null values
+
+df = df.dropna(ignore_index = True)
+
+df.to_csv("cleaned_dataset.csv")
+
+df.info()
