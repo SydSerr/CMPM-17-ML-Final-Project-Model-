@@ -12,7 +12,7 @@ import numpy as np
 import csv
 import re
 
-df1 = pd.read_csv("descriptions.csv", on_bad_lines="skip") #skip glitched lines
+df1 = pd.read_csv("descriptions.csv", on_bad_lines="skip") #skip glitched lines2
 df1.info()
 print(df1["app_id"].unique()) #view the unique values for debugging the different languages
 df1 = df1.dropna(ignore_index=True)
