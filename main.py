@@ -114,16 +114,14 @@ df = pd.get_dummies(df,columns=["genre"])
 
 #one hot encode the letters in description
 
-# One-hot encode individual alphabetical characters in the "extensive" column
-def char_presence(text):
-    text = text.lower()
-    return {char: 1 for char in set(text) if char.isalpha()}
+def every_letter(extensive_text):
+    extensive_text = extensive_text.lower() #remove error with duplicate letters from uppercase letters
+    return {char: 1 for char in set(extensive_text) if char.isalpha()} #create dictionary with each character in the set of the text within extensive if all letters are in alphabet
 
 # Apply the function and expand the result into separate columns
-char_df = df['extensive'].apply(char_presence).apply(pd.Series).fillna(0).astype(int)
+char_df = df['extensive'].apply(every_letter).apply(pd.Series).fillna(0).astype(int) #fill null values with 0 as type integer for every letter in extensive once applied the the check for each alphabetical letter
 
-# Combine the character encoding with the main DataFrame
-df = pd.concat([df, char_df], axis=1)
+df = pd.concat([df, char_df], axis=1) #combining character encoding with dataframe
 
 print(f'These are the duplicates:\n{df.loc[df.duplicated()]}') #empty no duplicates in df
 
@@ -131,11 +129,11 @@ df = df.drop(columns="app_id")
 
 df.info()
 
-df.to_csv("cleaned_dataset.csv")
-
 df.replace('\\N', np.nan, inplace=True) #replace null values
 
 df = df.dropna(ignore_index = True)
+
+df = df.drop(columns="extensive") #drop extensive, so we can convert to tensors with float values
 
 df.to_csv("cleaned_dataset.csv")
 
