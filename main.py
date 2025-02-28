@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 import csv
 import re
 
@@ -160,3 +161,77 @@ df = df.dropna(ignore_index = True)
 df.to_csv("cleaned_dataset.csv")
 
 df.info()
+
+#converting data to torch tensors
+data = torch.tensor(df.values.astype("float"),dtype=torch.float)
+
+training_inputs = data[:11836,10:36]
+training_outputs = data[:11836,:10]
+
+testing_inputs = data[2959:, 10:36]
+testing_outputs = data[2959:, :10] 
+
+class MyDataset(Dataset): 
+    def __init__(self,data):
+        #initializing 
+        self.length = len(data)
+        self.data = data
+    def __len__(self):
+        return self.length
+    
+    def __getitem__(self,index):
+        return self.data[index]
+    
+my_dataset = MyDataset(df)
+dataloader = DataLoader(my_dataset,batch_size=500,shuffle=True) 
+
+#class that inherits from Pytorch
+class myRNN(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(myRNN,self).__init__()
+        self.rnn = nn.RNN(input_size, hidden_size)
+        self.h2o = nn.Linear(hidden_size, output_size)
+        self.softmax = nn.Softmax(dim=1)
+
+    def forward(self,input):
+        #goes thro layers however many want
+
+model = myRNN()
+#pred = model()
+loss_fn = nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr = 1.0) 
+epochs = 10000
+
+
+training_loss_lst = []
+
+"""Training loop"""
+for batch in dataloader:
+    for x, y in range(epochs): 
+        hidden = model.initHidden()
+        for i in range(len(x[:,0])):
+            pred, hidden = model(x[:,i],hidden)
+        training_loss = loss_fn(pred,y)
+       
+        print(f'Training loss: {math.sqrt(training_loss.item())}') #print the sqrt of training loss to see accurate loss comparison
+        training_loss_lst.append(math.sqrt(training_loss.item()))
+
+        training_loss.backward() #calculates slope to guide optimizer
+        optimizer.step() #updating weights
+        optimizer.zero_grad() #resets optimizer for epochs
+    
+
+plt.plot(training_loss_lst)
+plt.show()
+
+
+"""Testing"""
+pred = model(testing_inputs)
+testing_loss = loss_fn(pred,testing_outputs)
+#print the sqrt of testing loss to see accurate loss comparison
+print(f'Testing loss: {math.sqrt(testing_loss.item())}')
+
+
+
+
+
