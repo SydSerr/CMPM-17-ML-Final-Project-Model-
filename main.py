@@ -8,9 +8,9 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
-
 import csv
 import re
+import math 
 
 df1 = pd.read_csv("descriptions.csv", on_bad_lines="skip") #skip glitched lines2
 df1.info()
@@ -127,11 +127,7 @@ df = df.drop(columns="genre_Utilities")
 df = df.drop(columns="genre_Video Production")
 df = df.drop(columns="genre_Violent")
 df = df.drop(columns="genre_Web Publishing")
-df = df.drop(columns="genre_Eductaion")
-
-
-
-
+df = df.drop(columns="genre_Education")
 
 
 
@@ -165,11 +161,11 @@ df.info()
 #converting data to torch tensors
 data = torch.tensor(df.values.astype("float"),dtype=torch.float)
 
-training_inputs = []
-training_outputs = []
+training_inputs = data[:11836,10:36]
+training_outputs = data[:11836,:10]
 
-testing_inputs = []
-testing_outputs = []
+testing_inputs = data[2959:, 10:36]
+testing_outputs = data[2959:, :10] 
 
 class MyDataset(Dataset): 
     def __init__(self,data):
@@ -185,26 +181,52 @@ class MyDataset(Dataset):
 my_dataset = MyDataset(df)
 dataloader = DataLoader(my_dataset,batch_size=500,shuffle=True) 
 
-#class that inherits from Pytorch
-class myRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
-        super(myRNN,self).__init__()
-        self.hidden_size = hidden_size
+# #class that inherits from Pytorch
+# class myRNN(nn.Module):
+#     def __init__(self, input_size, hidden_size, output_size):
+#         super(myRNN,self).__init__()
+#         self.hidden_size = hidden_size
         
 
-    def forward(self,input):
-        #goes thro layers however many want
+#     def forward(self,input):
+#         #goes thro layers however many want
 
 model = myRNN()
 #pred = model()
-loss_Fn = nn.MSELoss()
+loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr = 1.0) 
 epochs = 10000
 
-for e in range(epochs):
-    for x, y in dataloader:
+
+training_loss_lst = []
+
+"""Training loop"""
+for batch in dataloader:
+    for x, y in range(epochs): 
         hidden = model.initHidden()
         for i in range(len(x[:,0])):
             pred, hidden = model(x[:,i],hidden)
-        loss = lossFn(pred,y)
-        back, step, zerograd
+        training_loss = loss_fn(pred,y)
+       
+        print(f'Training loss: {math.sqrt(training_loss.item())}') #print the sqrt of training loss to see accurate loss comparison
+        training_loss_lst.append(math.sqrt(training_loss.item()))
+
+        training_loss.backward() #calculates slope to guide optimizer
+        optimizer.step() #updating weights
+        optimizer.zero_grad() #resets optimizer for epochs
+    
+
+plt.plot(training_loss_lst)
+plt.show()
+
+
+"""Testing"""
+pred = model(testing_inputs)
+testing_loss = loss_fn(pred,testing_outputs)
+#print the sqrt of testing loss to see accurate loss comparison
+print(f'Testing loss: {math.sqrt(testing_loss.item())}')
+
+
+
+
+
