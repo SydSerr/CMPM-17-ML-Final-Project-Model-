@@ -138,3 +138,14 @@ df = df.drop(columns="extensive") #drop extensive, so we can convert to tensors 
 df.to_csv("cleaned_dataset.csv")
 
 df.info()
+
+#class that inherits from Pytorch
+class myNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        layer1 = nn.Linear(1,28)
+    def forward(self,input):
+       #goes thro layers however many want
+
+model = myNN()
+pred = model()
