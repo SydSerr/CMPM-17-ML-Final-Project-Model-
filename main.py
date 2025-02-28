@@ -110,6 +110,31 @@ print(f'Final unique vals in genre col\n{df["genre"].unique()}')
 #one hot encode the genre column
 df = pd.get_dummies(df,columns=["genre"])
 
+df = df.drop(columns="genre_Accounting")
+df = df.drop(columns="genre_Animation & Modeling")
+df = df.drop(columns="genre_Audio Production")
+df = df.drop(columns="genre_Design & Illustration")
+df = df.drop(columns="genre_Early Access")
+df = df.drop(columns="genre_Free to Play")
+df = df.drop(columns="genre_Game Development")
+df = df.drop(columns="genre_Gore")
+df = df.drop(columns="genre_Movie")
+df = df.drop(columns="genre_Nudity")
+df = df.drop(columns="genre_Photo Editing")
+df = df.drop(columns="genre_Sexual Content")
+df = df.drop(columns="genre_Software Training")
+df = df.drop(columns="genre_Utilities")
+df = df.drop(columns="genre_Video Production")
+df = df.drop(columns="genre_Violent")
+df = df.drop(columns="genre_Web Publishing")
+df = df.drop(columns="genre_Eductaion")
+
+
+
+
+
+
+
 #one hot encode the letters in description
 
 def every_letter(extensive_text):
@@ -137,6 +162,7 @@ df.to_csv("cleaned_dataset.csv")
 
 df.info()
 
+#converting data to torch tensors
 data = torch.tensor(df.values.astype("float"),dtype=torch.float)
 
 training_inputs = []
@@ -159,7 +185,7 @@ class MyDataset(Dataset):
 my_dataset = MyDataset(df)
 dataloader = DataLoader(my_dataset,batch_size=500,shuffle=True) 
 
-class that inherits from Pytorch
+#class that inherits from Pytorch
 class myRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(myRNN,self).__init__()
