@@ -12,9 +12,9 @@ import numpy as np
 import csv
 import re
 
-df1 = pd.read_csv("descriptions.csv", on_bad_lines="skip") #skip glitched lines2
+df1 = pd.read_csv("descriptions.csv", on_bad_lines="skip") #skip glitched lines
 df1.info()
-#print(df1["app_id"].unique()) #view the unique values for debugging the different languages
+print(df1["app_id"].unique()) #view the unique values for debugging the different languages
 df1 = df1.dropna(ignore_index=True)
 df1 = df1.drop_duplicates (ignore_index=True)
 df1 = df1.drop(columns= "summary")
@@ -33,8 +33,9 @@ df1 = df1[df1['extensive'].apply(lambda x: x.encode('ascii', 'ignore').decode('a
 
 df1.info()
 
+
 df2 = pd.read_csv("genres.csv")
-#print(df2["app_id"].unique())
+print(df2["app_id"].unique())
 df2.info()
 df2 = df2.dropna(ignore_index=True)
 df2 = df2.drop_duplicates (ignore_index=True)
@@ -156,55 +157,6 @@ df.replace('\\N', np.nan, inplace=True) #replace null values
 
 df = df.dropna(ignore_index = True)
 
-df = df.drop(columns="extensive") #drop extensive, so we can convert to tensors with float values
-
 df.to_csv("cleaned_dataset.csv")
 
 df.info()
-
-#converting data to torch tensors
-data = torch.tensor(df.values.astype("float"),dtype=torch.float)
-
-training_inputs = []
-training_outputs = []
-
-testing_inputs = []
-testing_outputs = []
-
-class MyDataset(Dataset): 
-    def __init__(self,data):
-        #initializing 
-        self.length = len(data)
-        self.data = data
-    def __len__(self):
-        return self.length
-    
-    def __getitem__(self,index):
-        return self.data[index]
-    
-my_dataset = MyDataset(df)
-dataloader = DataLoader(my_dataset,batch_size=500,shuffle=True) 
-
-#class that inherits from Pytorch
-class myRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
-        super(myRNN,self).__init__()
-        self.hidden_size = hidden_size
-        
-
-    def forward(self,input):
-        #goes thro layers however many want
-
-model = myRNN()
-#pred = model()
-loss_Fn = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr = 1.0) 
-epochs = 10000
-
-for e in range(epochs):
-    for x, y in dataloader:
-        hidden = model.initHidden()
-        for i in range(len(x[:,0])):
-            pred, hidden = model(x[:,i],hidden)
-        loss = lossFn(pred,y)
-        back, step, zerograd
