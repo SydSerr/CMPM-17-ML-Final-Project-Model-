@@ -185,14 +185,33 @@ dataloader = DataLoader(my_dataset,batch_size=500,shuffle=True)
 class myRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(myRNN,self).__init__()
-        self.rnn = nn.RNN(input_size, hidden_size)
-        self.h2o = nn.Linear(hidden_size, output_size)
+        
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+
+        self.layer1 = nn.Linear(25,100)
+        self.layer2 = nn.Linear(100,75)
+        self.layer3 = nn.Linear(75,10)
         self.softmax = nn.Softmax(dim=1)
+        self.activation = nn.Tanh()
 
     def forward(self,input):
-        #goes thro layers however many want
+        #goes thro layers 
+        partial = self.layer1(input)
+        partial = self.activation(partial)
+        partial = self.layer2(partial)
+        partial = self.activation(partial)
+        output = self.layer3(partial)
+        
+        return self.softmax(output)
 
-model = myRNN()
+    def initHidden(self):
+        return torch.zeros(1, self.hidden_size)
+
+
+#in,out,hidden size
+model = myRNN(25,10,100) 
 #pred = model()
 loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr = 1.0) 
