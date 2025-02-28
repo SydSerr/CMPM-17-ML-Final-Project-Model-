@@ -181,15 +181,16 @@ class MyDataset(Dataset):
 my_dataset = MyDataset(df)
 dataloader = DataLoader(my_dataset,batch_size=500,shuffle=True) 
 
-# #class that inherits from Pytorch
-# class myRNN(nn.Module):
-#     def __init__(self, input_size, hidden_size, output_size):
-#         super(myRNN,self).__init__()
-#         self.hidden_size = hidden_size
-        
+#class that inherits from Pytorch
+class myRNN(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(myRNN,self).__init__()
+        self.rnn = nn.RNN(input_size, hidden_size)
+        self.h2o = nn.Linear(hidden_size, output_size)
+        self.softmax = nn.Softmax(dim=1)
 
-#     def forward(self,input):
-#         #goes thro layers however many want
+    def forward(self,input):
+        #goes thro layers however many want
 
 model = myRNN()
 #pred = model()
