@@ -145,7 +145,7 @@ class myNN(nn.Module):
         super().__init__()
         layer1 = nn.Linear(1,28)
     def forward(self,input):
-       #goes thro layers however many want
+        #goes thro layers however many want
 
 model = myNN()
 pred = model()
