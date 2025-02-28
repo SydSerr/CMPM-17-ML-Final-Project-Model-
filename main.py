@@ -112,6 +112,19 @@ print(f'Final unique vals in genre col\n{df["genre"].unique()}')
 #one hot encode the genre column
 df = pd.get_dummies(df,columns=["genre"])
 
+#one hot encode the letters in description
+
+# One-hot encode individual alphabetical characters in the "extensive" column
+def char_presence(text):
+    text = text.lower()
+    return {char: 1 for char in set(text) if char.isalpha()}
+
+# Apply the function and expand the result into separate columns
+char_df = df['extensive'].apply(char_presence).apply(pd.Series).fillna(0).astype(int)
+
+# Combine the character encoding with the main DataFrame
+df = pd.concat([df, char_df], axis=1)
+
 print(f'These are the duplicates:\n{df.loc[df.duplicated()]}') #empty no duplicates in df
 
 df = df.drop(columns="app_id")
