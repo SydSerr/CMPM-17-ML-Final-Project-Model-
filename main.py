@@ -127,7 +127,7 @@ df = df.drop(columns="genre_Utilities")
 df = df.drop(columns="genre_Video Production")
 df = df.drop(columns="genre_Violent")
 df = df.drop(columns="genre_Web Publishing")
-df = df.drop(columns="genre_Eductaion")
+df = df.drop(columns="genre_Education")
 
 
 
