@@ -33,7 +33,6 @@ df1 = df1[df1['extensive'].apply(lambda x: x.encode('ascii', 'ignore').decode('a
 
 df1.info()
 
-
 df2 = pd.read_csv("genres.csv")
 #print(df2["app_id"].unique())
 df2.info()
@@ -46,7 +45,6 @@ df = pd.concat([df1,df2],axis=1)
 print(df)
 
 df.info()
-
 
 print(f'What null vals are there?\n{df.loc[df.isna().any(axis=1)]}')
 df = df.dropna(ignore_index=True) 
@@ -139,13 +137,48 @@ df.to_csv("cleaned_dataset.csv")
 
 df.info()
 
-#class that inherits from Pytorch
-class myNN(nn.Module):
-    def __init__(self):
-        super().__init__()
-        layer1 = nn.Linear(1,28)
+data = torch.tensor(df.values.astype("float"),dtype=torch.float)
+
+training_inputs = []
+training_outputs = []
+
+testing_inputs = []
+testing_outputs = []
+
+class MyDataset(Dataset): 
+    def __init__(self,data):
+        #initializing 
+        self.length = len(data)
+        self.data = data
+    def __len__(self):
+        return self.length
+    
+    def __getitem__(self,index):
+        return self.data[index]
+    
+my_dataset = MyDataset(df)
+dataloader = DataLoader(my_dataset,batch_size=500,shuffle=True) 
+
+class that inherits from Pytorch
+class myRNN(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(myRNN,self).__init__()
+        self.hidden_size = hidden_size
+        
+
     def forward(self,input):
         #goes thro layers however many want
 
-model = myNN()
-pred = model()
+model = myRNN()
+#pred = model()
+loss_Fn = nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr = 1.0) 
+epochs = 10000
+
+for e in range(epochs):
+    for x, y in dataloader:
+        hidden = model.initHidden()
+        for i in range(len(x[:,0])):
+            pred, hidden = model(x[:,i],hidden)
+        loss = lossFn(pred,y)
+        back, step, zerograd
