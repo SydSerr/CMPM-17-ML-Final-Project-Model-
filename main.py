@@ -158,6 +158,8 @@ for i, char in enumerate(set(extensive_set)): #loops through index of each uniqu
 print(char_to_num)
 
 def every_letter(extensive_text):
+    if isinstance(extensive_text, pd.Series):
+        extensive_text = extensive_text.iloc[0]  # Get the string value from the Series
     extensive_text = extensive_text.lower() #remove error with duplicate letters from uppercase letters
     num_list = [] #new list to store numbers for each character
     for char in extensive_text:
@@ -216,7 +218,6 @@ class MyDataset(Dataset):
         # return self.data[index]
 
 df.info()
-
 from torch.nn.utils.rnn import pad_sequence
 
 def padding_batch(batch):
@@ -229,12 +230,33 @@ trained_dataset = MyDataset(df[:11836]) #80 percent for training
 trained_dataloader = DataLoader(trained_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch) 
 # trained_dataloader = DataLoader(trained_dataset,batch_size=1,shuffle=True) 
 
-for value in testing_dataloader:
-    print(value)
+sample_size = 100 
 
-for value in trained_dataloader:
-    print(value)
+stored_testing_char = []
+stored_testing_count = []
 
+stored_training_char = []
+stored_training_count = []
+
+# testing_sample = testing_dataset[:sample_size]
+# trained_sample = trained_dataset[:sample_size]
+
+for i in range(sample_size):
+    stored_testing_char.extend(every_letter(df.iloc[11836 + i, 0]))
+    stored_training_char.extend(every_letter(df.iloc[i, 0]))
+plt.figure(figsize=(12, 6))
+plt.hist(stored_testing_char, bins=len(char_to_num), color='green', alpha=0.7, edgecolor='black')
+plt.xlabel('Character Index')
+plt.ylabel('Frequency')
+plt.title('Character Frequency in Testing Dataset')
+plt.show()
+
+plt.figure(figsize=(12, 6))
+plt.hist(stored_training_char, bins=len(char_to_num), color='red', alpha=0.7, edgecolor='black')
+plt.xlabel('Character Index')
+plt.ylabel('Frequency')
+plt.title('Character Frequency in Training Dataset')
+plt.show()
 #NOTHING MORE EXCEPT GRAPH FOR MILESTONE 2
 quit()
 
