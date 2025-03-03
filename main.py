@@ -108,7 +108,7 @@ df["genre"] = df["genre"].replace("Indépendant","Indie")
 
 #Replace extensive special characters
 
-df["extensive"] = df["extensive"].replace(r"[`(){}[\]|_\b\\]", "", regex = True)
+df["extensive"] = df["extensive"].replace(r"[`(){}[\]|_\b\\]", "", regex = True) #fixing the characters
 
 
 print(f'Final unique vals in genre col\n{df["genre"].unique()}')
@@ -141,7 +141,7 @@ char_to_num = {}
 
 extensive_set = set()
 
-for string in df['extensive']:
+for string in df['extensive']: #for each string int he extensive column add it to the set
     string = string.lower()
     for char in string:
         extensive_set.add(char)
@@ -153,7 +153,7 @@ print(char_to_num)
 
 def every_letter(extensive_text):
     if isinstance(extensive_text, pd.Series):
-        extensive_text = extensive_text.iloc[0]  # Get the string value from the Series
+        extensive_text = extensive_text.iloc[0]  # fix error with series from method not being interpreted
     extensive_text = extensive_text.lower() #remove error with duplicate letters from uppercase letters
     num_list = [] #new list to store numbers for each character
     for char in extensive_text:
