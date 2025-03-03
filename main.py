@@ -106,6 +106,10 @@ df["genre"] = df["genre"].replace("Free To Play","Free to Play")
 df["genre"] = df["genre"].replace("Abenteuer","Adventure")
 df["genre"] = df["genre"].replace("Indépendant","Indie")
 
+#Replace extensive special characters
+
+df["extensive"] = df["extensive"].replace(r"[`(){}[\]|_\b\\]", "", regex = True)
+
 
 print(f'Final unique vals in genre col\n{df["genre"].unique()}')
 
@@ -135,24 +139,48 @@ df = df.drop(columns="genre_Education")
 
 
 
-
+#one hot encode the letters as numbers loop through text
 
 #one hot encode the letters in description
 
+char_to_num = {}
+
+extensive_set = set()
+
+for string in df['extensive']:
+    string = string.lower()
+    for char in string:
+        extensive_set.add(char)
+    
+
+for i, char in enumerate(set(extensive_set)): #loops through index of each unique element in extensive text
+    char_to_num[char] = i #sets dictionary value mapped to its index
+print(char_to_num)
+
 def every_letter(extensive_text):
     extensive_text = extensive_text.lower() #remove error with duplicate letters from uppercase letters
-    return {char: 1 for char in set(extensive_text) if char.isalpha()} #create dictionary with each character in the set of the text within extensive if all letters are in alphabet
+    num_list = [] #new list to store numbers for each character
+    for char in extensive_text:
+        num_list.append(char_to_num[char])  #going thorugh each character from text to append value mapped in dictionary to list 
+    return num_list
+
+for char in every_letter("hello"):
+    print(char)
+
+#return {char: 1 for char in set(extensive_text) if char.isalpha()} #create dictionary with each character in the set of the text within extensive if all letters are in alphabet
+
+
 
 # Apply the function and expand the result into separate columns
-char_df = df['extensive'].apply(every_letter).apply(pd.Series).fillna(0).astype(int) #fill null values with 0 as type integer for every letter in extensive once applied the the check for each alphabetical letter
+#char_df = df['extensive'].apply(every_letter).apply(pd.Series).fillna(0).astype(int) #fill null values with 0 as type integer for every letter in extensive once applied the the check for each alphabetical letter
 
-df = pd.concat([df, char_df], axis=1) #combining character encoding with dataframe
+#df = pd.concat([df, char_df], axis=1) #combining character encoding with dataframe
 
 print(f'These are the duplicates:\n{df.loc[df.duplicated()]}') #empty no duplicates in df
 
 df = df.drop(columns="app_id")
 
-df.info()
+#df = df.drop(columns="extensive") #dropping extensive too to support tensor conversion
 
 df.replace('\\N', np.nan, inplace=True) #replace null values
 
@@ -163,13 +191,15 @@ df.to_csv("cleaned_dataset.csv")
 df.info()
 
 #converting data to torch tensors
-data = torch.tensor(df.values.astype("float"),dtype=torch.float)
+# data = torch.tensor(df.values.astype("float"),dtype=torch.float)
 
-training_inputs = data[:11836,10:36]
-training_outputs = data[:11836,:10]
+# data_list = every_letter(df["extensive"])
 
-testing_inputs = data[2959:, 10:36]
-testing_outputs = data[2959:, :10] 
+# training_inputs = data[:11836, data_list]
+# training_outputs = data[:11836,:10]
+
+# testing_inputs = data[2959:, data_list]
+# testing_outputs = data[2959:, :10] 
 
 class MyDataset(Dataset): 
     def __init__(self,data):
@@ -180,23 +210,65 @@ class MyDataset(Dataset):
         return self.length
     
     def __getitem__(self,index):
-        return self.data[index]
+        letter = every_letter(self.data.iloc[index, 0]) #taking string from index on extensive column and getting values
+        item_tensor = torch.tensor(letter)
+        return nn.functional.one_hot(item_tensor, num_classes=59)
+        # return self.data[index]
+
+df.info()
+
+from torch.nn.utils.rnn import pad_sequence
+
+def padding_batch(batch):
+    return pad_sequence(batch, batch_first=True)
     
-my_dataset = MyDataset(df)
-dataloader = DataLoader(my_dataset,batch_size=500,shuffle=True) 
+testing_dataset = MyDataset(df[11836:]) #20 percent for testing
+testing_dataloader = DataLoader(testing_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch)
+# testing_dataloader = DataLoader(testing_dataset,batch_size=1,shuffle=True) 
+trained_dataset = MyDataset(df[:11836]) #80 percent for training
+trained_dataloader = DataLoader(trained_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch) 
+# trained_dataloader = DataLoader(trained_dataset,batch_size=1,shuffle=True) 
+
+for value in testing_dataloader:
+    print(value)
+
+for value in trained_dataloader:
+    print(value)
+
+#NOTHING MORE EXCEPT GRAPH FOR MILESTONE 2
+quit()
 
 #class that inherits from Pytorch
 class myRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(myRNN,self).__init__()
-        self.rnn = nn.RNN(input_size, hidden_size)
-        self.h2o = nn.Linear(hidden_size, output_size)
+        
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+
+        self.layer1 = nn.Linear(25,100)
+        self.layer2 = nn.Linear(100,75)
+        self.layer3 = nn.Linear(75,10)
         self.softmax = nn.Softmax(dim=1)
+        self.activation = nn.Tanh()
 
     def forward(self,input):
-        #goes thro layers however many want
+        #goes thro layers 
+        partial = self.layer1(input)
+        partial = self.activation(partial)
+        partial = self.layer2(partial)
+        partial = self.activation(partial)
+        output = self.layer3(partial)
+        
+        return self.softmax(output)
 
-model = myRNN()
+    def initHidden(self):
+        return torch.zeros(1, self.hidden_size)
+
+
+#in,out,hidden size
+model = myRNN(25,10,100) 
 #pred = model()
 loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr = 1.0) 
@@ -226,7 +298,7 @@ plt.show()
 
 
 """Testing"""
-pred = model(testing_inputs)
+pred = model(testing_dataset)
 testing_loss = loss_fn(pred,testing_outputs)
 #print the sqrt of testing loss to see accurate loss comparison
 print(f'Testing loss: {math.sqrt(testing_loss.item())}')
