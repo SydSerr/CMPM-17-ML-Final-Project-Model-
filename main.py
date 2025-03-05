@@ -206,6 +206,8 @@ for value in testing_dataloader:
 for value in trained_dataloader:
     print(value)
 
+"""Graph Visualization"""
+
 #intialize  for graph creation
 sample_size = 100 
 
@@ -238,32 +240,22 @@ plt.show()
 quit()
 
 
-
-
 #class that inherits from Pytorch
 class myRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(myRNN,self).__init__()
         
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-
-        self.layer1 = nn.Linear(25,100)
-        self.layer2 = nn.Linear(100,75)
-        self.layer3 = nn.Linear(75,10)
-        self.softmax = nn.Softmax(dim=1)
-        self.activation = nn.Tanh()
+        self.rnn = nn.RNN(input_size, hidden_size)
+        self.h2o = nn.Linear(hidden_size, output_size)
+        self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self,input):
         #goes thro layers 
-        partial = self.layer1(input)
-        partial = self.activation(partial)
-        partial = self.layer2(partial)
-        partial = self.activation(partial)
-        output = self.layer3(partial)
+        rnn_out, hidden = self.rnn(line_tensor)
+        output = self.h2o(hidden[0])
+        output = self.softmax(output)
         
-        return self.softmax(output)
+        return output
 
     def initHidden(self):
         return torch.zeros(1, self.hidden_size)
