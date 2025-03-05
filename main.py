@@ -295,8 +295,8 @@ for batch in dataloader:
         optimizer.zero_grad() #resets optimizer for epochs
     
 
-plt.plot(training_loss_lst)
-plt.show()
+#plt.plot(training_loss_lst)
+#plt.show()
 
 
 """Testing"""
