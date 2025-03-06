@@ -8,8 +8,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
-
-
+import math
 import csv
 import re
 
@@ -183,9 +182,11 @@ class MyDataset(Dataset):
         return self.length
     
     def __getitem__(self,index):
+        """error here?"""
         letter = every_letter(self.data.iloc[index, 0]) #taking string from index on extensive column and getting values
         item_tensor = torch.tensor(letter)
-        return nn.functional.one_hot(item_tensor, num_classes=59)
+        #need to update to output correct genre too
+        return nn.functional.one_hot(item_tensor, num_classes=59), torch.tensor(self.data.iloc[index, 1:].values.astype(np.float32))
         # return self.data[index]
 
 df.info()
@@ -194,17 +195,13 @@ from torch.nn.utils.rnn import pad_sequence #padding because of error that datal
 def padding_batch(batch):
     return pad_sequence(batch, batch_first=True)
     
-testing_dataset = MyDataset(df[11836:]) #20 percent for testing
-testing_dataloader = DataLoader(testing_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch)
 trained_dataset = MyDataset(df[:11836]) #80 percent for training
 trained_dataloader = DataLoader(trained_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch) 
 
-#proof that the tensors in the dataloaders are all properly created.. be able to loop through both dataloaders
-for value in testing_dataloader:
-    print(value)
+testing_dataset = MyDataset(df[11836:]) #20 percent for testing
+testing_dataloader = DataLoader(testing_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch)
 
-for value in trained_dataloader:
-    print(value)
+#proof that the tensors in the dataloaders are all properly created.. be able to loop through both dataloaders
 
 """Graph Visualization"""
 
@@ -237,67 +234,108 @@ plt.title('Character Occurrence in Training Dataset')
 plt.show()
 
 #NOTHING MOREFOR MILESTONE 2
-quit()
+#quit()
 
 
 #class that inherits from Pytorch
 class myRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self, input_size, hidden_size,output_size):
         super(myRNN,self).__init__()
+        self.hidden_size = 10
+        self.hidden_size = hidden_size
+        self.input_size = input_size
+        self.output_size = output_size
         
-        self.rnn = nn.RNN(input_size, hidden_size)
-        self.h2o = nn.Linear(hidden_size, output_size)
-        self.softmax = nn.LogSoftmax(dim=1)
+        #input,hidden,output
+        self.i2o = nn.Linear(59 + self.hidden_size,9) 
+        self.i2h = nn.Linear(59+ self.hidden_size,self.hidden_size)  
+        self.o2o = nn.Linear(9 + self.hidden_size,9) 
+        self.softmax = nn.Softmax(dim=1)
+        self.activation = nn.Tanh()
+        self.lstm = nn.LSTM(59,self.hidden_size,3,batch_first=True)
 
-    def forward(self,input):
+    def forward(self,input,hidden):
         #goes thro layers 
-        rnn_out, hidden = self.rnn(line_tensor)
-        output = self.h2o(hidden[0])
+        lstm_out, hidden = self.lstm(input,hidden)
+        lstm_out_last = lstm_out[:,-1,:]
+        
+        """error here? Input?"""
+        combined = torch.cat((lstm_out_last,input[:,-1,:]),dim=1)
+        
+        output = self.i2o(combined)
+        output = self.activation(output)
+        
+        hidden = self.i2h(combined)
+        hidden = self.activation(hidden)
+
+        """error here?"""
+        out_combined = torch.cat((output,lstm_out_last),dim=1)
+        output = self.o2o(out_combined)
+        output = self.activation(output)
         output = self.softmax(output)
         
-        return output
+        # combined = torch.cat((input,hidden),1)
+        # output = self.i2o(combined)
+        # hidden = self.i2h(combined)
+        # hidden = self.activation(hidden)
+        
+        return output,hidden
 
-    def initHidden(self):
-        return torch.zeros(1, self.hidden_size)
+    def initHidden(self,batch_size):
+        """need clarification"""
+        h0 = torch.zeros(1, batch_size, self.hidden_size)
+        c0 = torch.zeros(1, batch_size, self.hidden_size)
+        return h0,c0
 
 
 #in,out,hidden size
-model = myRNN(25,10,100) 
-#pred = model()
-loss_fn = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr = 1.0) 
+rnn = myRNN(59,10,9) 
+loss_fn = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(rnn.parameters(), lr = 0.01) 
 epochs = 10000
 
 
-training_loss_lst = []
+#training_loss_lst = []
 
-"""Training loop"""
-for batch in dataloader:
-    for x, y in range(epochs): 
-        hidden = model.initHidden()
-        for i in range(len(x[:,0])):
-            pred, hidden = model(x[:,i],hidden)
-        training_loss = loss_fn(pred,y)
+"""Training loop: get checked"""
+
+for e in range(epochs): 
+    for value, genre in trained_dataloader:
+        batch_size = value.shape[0]
+        h0,c0 = rnn.initHidden(batch_size)
+
+        pred,_ = rnn(value,(h0,c0))
+        training_loss = loss_fn(pred, genre)
+
+        print(f'Training loss: {training_loss.item()}')
+        
+        # for i in range(len(value[:,0])):
+        #     pred, hidden = rnn(value[:,i],hidden)
+        # training_loss = loss_fn(pred,genre)
        
-        print(f'Training loss: {math.sqrt(training_loss.item())}') #print the sqrt of training loss to see accurate loss comparison
-        training_loss_lst.append(math.sqrt(training_loss.item()))
+        # print(f'Training loss: {math.sqrt(training_loss.item())}') #print the sqrt of training loss to see accurate loss comparison
+        # training_loss_lst.append(math.sqrt(training_loss.item()))
 
         training_loss.backward() #calculates slope to guide optimizer
         optimizer.step() #updating weights
         optimizer.zero_grad() #resets optimizer for epochs
     
+#plt.plot(training_loss_lst)
+#plt.show()
 
-plt.plot(training_loss_lst)
-plt.show()
+"""Testing: get checked"""
+for value, genre in testing_dataloader:
+    batch_size = value.shape[0]
+    h0,c0 = rnn.initHidden(batch_size)
+    pred,_ = rnn(value,(h0,c0))
+    testing_loss = loss_fn(pred, genre)
 
-
-"""Testing"""
-pred = model(testing_dataset)
-testing_loss = loss_fn(pred,testing_outputs)
-#print the sqrt of testing loss to see accurate loss comparison
-print(f'Testing loss: {math.sqrt(testing_loss.item())}')
-
-
-
-
+    print(f'Testing loss: {testing_loss.item()}')
+        
+    # hidden = rnn.initHidden()
+    # for i in range(value.shape[1]):
+    #     pred, hidden = rnn(value[:,i],hidden)
+    # testing_loss = loss_fn(pred,genre)
+    # #print the sqrt of testing loss to see accurate loss comparison
+    # print(f'Testing loss: {math.sqrt(testing_loss.item())}')
 
