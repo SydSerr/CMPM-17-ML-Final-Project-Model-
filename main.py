@@ -11,6 +11,8 @@ import numpy as np
 import math
 import csv
 import re
+from torch.nn.utils.rnn import pad_sequence #padding because of error that dataloader has different variable lengths
+
 
 df1 = pd.read_csv("descriptions.csv", on_bad_lines="skip") #skip glitched lines
 df1.info()
@@ -52,8 +54,9 @@ df = df.dropna(ignore_index=True)
 print(f'What null vals are there?\n{df.loc[df.isna().any(axis=1)]}')
 
 print(f'Initial unique vals in genre col\n{df["genre"].unique()}')
-print(f'Initial unique vals in extensive col\n{df["extensive"].unique()}')
+#print(f'Initial unique vals in extensive col\n{df["extensive"].unique()}')
 
+#clearing "genre" col of bad strings: translating into English 
 df["genre"] = df["genre"].replace("Экшены","Action")
 df["genre"] = df["genre"].replace("Бесплатные","Free to Play")
 df["genre"] = df["genre"].replace("Стратегии","Strategy")
@@ -106,7 +109,6 @@ df["genre"] = df["genre"].replace("Abenteuer","Adventure")
 df["genre"] = df["genre"].replace("Indépendant","Indie")
 
 #Replace extensive special characters
-
 df["extensive"] = df["extensive"].replace(r"[`(){}[\]|_\b\\]", "", regex = True) #fixing the characters
 
 
@@ -115,6 +117,7 @@ print(f'Final unique vals in genre col\n{df["genre"].unique()}')
 #one hot encode the genre column
 df = pd.get_dummies(df,columns=["genre"])
 
+#performed class distribution analysis for "genre" and dropped extra genre cols not benefitting model
 df = df.drop(columns="genre_Accounting")
 df = df.drop(columns="genre_Animation & Modeling")
 df = df.drop(columns="genre_Audio Production")
@@ -182,21 +185,26 @@ class MyDataset(Dataset):
         return self.length
     
     def __getitem__(self,index):
-        """error here?"""
         letter = every_letter(self.data.iloc[index, 0]) #taking string from index on extensive column and getting values
-        item_tensor = torch.tensor(letter)
-        #need to update to output correct genre too
-        return nn.functional.one_hot(item_tensor, num_classes=59), torch.tensor(self.data.iloc[index, 1:].values.astype(np.float32))
-        # return self.data[index]
+        item_tensor = torch.tensor(letter, dtype=torch.long)
+        
+        row = df.iloc[index]
+        genre_cols = df.columns[1:11]
+
+        genre = [genre for genre in genre_cols if row[genre]==1]
+
+        character = nn.functional.one_hot(item_tensor, num_classes=59)
+        #genre = torch.tensor(self.data.iloc[index, 1:].values.astype(np.float32))
+        return character, genre
+        
 
 df.info()
-from torch.nn.utils.rnn import pad_sequence #padding because of error that dataloader has different variable lengths
 
 def padding_batch(batch):
     return pad_sequence(batch, batch_first=True)
     
-trained_dataset = MyDataset(df[:11836]) #80 percent for training
-trained_dataloader = DataLoader(trained_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch) 
+training_dataset = MyDataset(df[:11836]) #80 percent for training
+training_dataloader = DataLoader(training_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch) 
 
 testing_dataset = MyDataset(df[11836:]) #20 percent for testing
 testing_dataloader = DataLoader(testing_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch)
@@ -214,18 +222,11 @@ stored_testing_count = []
 stored_training_char = []
 stored_training_count = []
 
-
 for i in range(sample_size):
     stored_testing_char.extend(every_letter(df.iloc[11836 + i, 0])) #setting the list of each testing character for each amount in sample size
     stored_training_char.extend(every_letter(df.iloc[i, 0])) #list of training characters for each letter up to sample size amount
 
-plt.figure(figsize=(14, 4))
-plt.hist(stored_testing_char, bins=len(char_to_num), color='pink', alpha=0.7, edgecolor='black') #set histogram to testing characters
-plt.xlabel('Index of Character')
-plt.ylabel('Occurrences of Characters')
-plt.title('Character Occurrence in Testing Dataset')
-plt.show()
-
+#using training_char data and graphing when each character occurs
 plt.figure(figsize=(12, 6))
 plt.hist(stored_training_char, bins=len(char_to_num), color='red', alpha=0.7, edgecolor='black') #histogram of training characters
 plt.xlabel('Index of Character')
@@ -233,8 +234,13 @@ plt.ylabel('Occurrences of Characters')
 plt.title('Character Occurrence in Training Dataset')
 plt.show()
 
-#NOTHING MOREFOR MILESTONE 2
-#quit()
+#using testing_char data and graphing when each character occurs
+plt.figure(figsize=(14, 4))
+plt.hist(stored_testing_char, bins=len(char_to_num), color='pink', alpha=0.7, edgecolor='black') #set histogram to testing characters
+plt.xlabel('Index of Character')
+plt.ylabel('Occurrences of Characters')
+plt.title('Character Occurrence in Testing Dataset')
+plt.show()
 
 
 #class that inherits from Pytorch
@@ -252,90 +258,87 @@ class myRNN(nn.Module):
         self.o2o = nn.Linear(9 + self.hidden_size,9) 
         self.softmax = nn.Softmax(dim=1)
         self.activation = nn.Tanh()
-        self.lstm = nn.LSTM(59,self.hidden_size,3,batch_first=True)
+        #self.lstm = nn.LSTM(59,self.hidden_size,3,batch_first=True)
 
     def forward(self,input,hidden):
-        #goes thro layers 
-        lstm_out, hidden = self.lstm(input,hidden)
-        lstm_out_last = lstm_out[:,-1,:]
-        
-        """error here? Input?"""
-        combined = torch.cat((lstm_out_last,input[:,-1,:]),dim=1)
-        
+
+        combined = torch.cat((input,hidden),1)
         output = self.i2o(combined)
-        output = self.activation(output)
-        
         hidden = self.i2h(combined)
         hidden = self.activation(hidden)
-
-        """error here?"""
-        out_combined = torch.cat((output,lstm_out_last),dim=1)
+        out_combined = torch.cat((output,hidden),dim=1)
         output = self.o2o(out_combined)
-        output = self.activation(output)
-        output = self.softmax(output)
-        
-        # combined = torch.cat((input,hidden),1)
+        output = self.softmax(output)        
+        return output,hidden
+    
+        #goes thro layers 
+        #lstm_out, hidden = self.lstm(input,hidden)
+        #lstm_out_last = lstm_out[:,-1,:]
+        #"""Check"""
+        # combined = torch.cat((lstm_out_last,input[:,-1,:]),dim=1)
         # output = self.i2o(combined)
+        # output = self.activation(output)
         # hidden = self.i2h(combined)
         # hidden = self.activation(hidden)
-        
-        return output,hidden
+        # """check"""
+        # out_combined = torch.cat((output,lstm_out_last),dim=1)
+        # output = self.o2o(out_combined)
+        # output = self.activation(output)
+        # output = self.softmax(output)
+        # # combined = torch.cat((input,hidden),1)
+        # # output = self.i2o(combined)""""
 
-    def initHidden(self,batch_size):
-        """need clarification"""
-        h0 = torch.zeros(1, batch_size, self.hidden_size)
-        c0 = torch.zeros(1, batch_size, self.hidden_size)
-        return h0,c0
+    def initHidden(self):
+        return torch.zeros(1,self.hidden_size)
+        ## need clarification with lstm
+        # h0 = torch.zeros(1, batch_size, self.hidden_size)
+        # c0 = torch.zeros(1, batch_size, self.hidden_size)
+        # return h0,c0
 
 
 #in,out,hidden size
 rnn = myRNN(59,10,9) 
 loss_fn = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(rnn.parameters(), lr = 0.01) 
+optimizer = optim.Adam(rnn.parameters(), lr = 0.01) 
 epochs = 10000
-
 
 #training_loss_lst = []
 
 """Training loop: get checked"""
 
 for e in range(epochs): 
-    for value, genre in trained_dataloader:
-        batch_size = value.shape[0]
-        h0,c0 = rnn.initHidden(batch_size)
-
-        pred,_ = rnn(value,(h0,c0))
-        training_loss = loss_fn(pred, genre)
-
-        print(f'Training loss: {training_loss.item()}')
-        
-        # for i in range(len(value[:,0])):
-        #     pred, hidden = rnn(value[:,i],hidden)
-        # training_loss = loss_fn(pred,genre)
+    for value, genre in training_dataloader:
+        for i in range(len(value[:,0])):
+            pred, hidden = rnn(value[:,i],hidden)
+        training_loss = loss_fn(pred,genre)
        
-        # print(f'Training loss: {math.sqrt(training_loss.item())}') #print the sqrt of training loss to see accurate loss comparison
-        # training_loss_lst.append(math.sqrt(training_loss.item()))
+        print(f'Training loss: {training_loss.item()})') #print the sqrt of training loss to see accurate loss comparison
 
         training_loss.backward() #calculates slope to guide optimizer
         optimizer.step() #updating weights
         optimizer.zero_grad() #resets optimizer for epochs
+
+        # batch_size = value.shape[0]
+        # h0,c0 = rnn.initHidden(batch_size)
+        # pred,_ = rnn(value,(h0,c0))
+        # training_loss = loss_fn(pred, genre)
+        # print(f'Training loss: {training_loss.item()}')
     
 #plt.plot(training_loss_lst)
 #plt.show()
 
-"""Testing: get checked"""
+"""Testing loop"""
 for value, genre in testing_dataloader:
-    batch_size = value.shape[0]
-    h0,c0 = rnn.initHidden(batch_size)
-    pred,_ = rnn(value,(h0,c0))
-    testing_loss = loss_fn(pred, genre)
-
+    hidden = rnn.initHidden()
+    for i in range(value.shape[1]):
+        pred, hidden = rnn(value[:,i],hidden)
+    testing_loss = loss_fn(pred,genre)
     print(f'Testing loss: {testing_loss.item()}')
-        
-    # hidden = rnn.initHidden()
-    # for i in range(value.shape[1]):
-    #     pred, hidden = rnn(value[:,i],hidden)
-    # testing_loss = loss_fn(pred,genre)
-    # #print the sqrt of testing loss to see accurate loss comparison
-    # print(f'Testing loss: {math.sqrt(testing_loss.item())}')
+
+    # batch_size = value.shape[0]
+    # h0,c0 = rnn.initHidden(batch_size)
+    # pred,_ = rnn(value,(h0,c0))
+    # testing_loss = loss_fn(pred, genre)
+
+    # print(f'Testing loss: {testing_loss.item()}')
 
