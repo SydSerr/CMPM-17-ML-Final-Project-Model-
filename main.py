@@ -188,13 +188,13 @@ class MyDataset(Dataset):
         letter = every_letter(self.data.iloc[index, 0]) #taking string from index on extensive column and getting values
         item_tensor = torch.tensor(letter, dtype=torch.long)
         
-        row = df.iloc[index]
-        genre_cols = df.columns[1:11]
-
-        genre = [genre for genre in genre_cols if row[genre]==1]
+        genre = df.iloc[index,1:11]
+        genre = torch.tensor(genre,dtype = torch.float32)
+        print(genre)
 
         character = nn.functional.one_hot(item_tensor, num_classes=59)
-        #genre = torch.tensor(self.data.iloc[index, 1:].values.astype(np.float32))
+        print(character)
+    
         return character, genre
         
 
@@ -212,7 +212,6 @@ testing_dataloader = DataLoader(testing_dataset,batch_size=500,shuffle=True, col
 #proof that the tensors in the dataloaders are all properly created.. be able to loop through both dataloaders
 
 """Graph Visualization"""
-
 #intialize  for graph creation
 sample_size = 100 
 
@@ -232,7 +231,7 @@ plt.hist(stored_training_char, bins=len(char_to_num), color='red', alpha=0.7, ed
 plt.xlabel('Index of Character')
 plt.ylabel('Occurrences of Characters')
 plt.title('Character Occurrence in Training Dataset')
-plt.show()
+#plt.show()
 
 #using testing_char data and graphing when each character occurs
 plt.figure(figsize=(14, 4))
@@ -240,7 +239,7 @@ plt.hist(stored_testing_char, bins=len(char_to_num), color='pink', alpha=0.7, ed
 plt.xlabel('Index of Character')
 plt.ylabel('Occurrences of Characters')
 plt.title('Character Occurrence in Testing Dataset')
-plt.show()
+#plt.show()
 
 
 #class that inherits from Pytorch
