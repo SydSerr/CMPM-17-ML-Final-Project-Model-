@@ -35,7 +35,6 @@ df1 = df1[df1['extensive'].apply(lambda x: x.encode('ascii', 'ignore').decode('a
 
 df1.info()
 
-
 df2 = pd.read_csv("genres.csv")
 print(df2["app_id"].unique())
 df2.info()
@@ -111,7 +110,6 @@ df["genre"] = df["genre"].replace("Indépendant","Indie")
 #Replace extensive special characters
 df["extensive"] = df["extensive"].replace(r"[`(){}[\]|_\b\\]", "", regex = True) #fixing the characters
 
-
 print(f'Final unique vals in genre col\n{df["genre"].unique()}')
 
 #one hot encode the genre column
@@ -140,7 +138,6 @@ df = df.drop(columns="genre_Education")
 #one hot encode the letters as numbers loop through text
 
 char_to_num = {}
-
 extensive_set = set()
 
 for string in df['extensive']: #for each string int he extensive column add it to the set
@@ -148,7 +145,6 @@ for string in df['extensive']: #for each string int he extensive column add it t
     for char in string:
         extensive_set.add(char)
     
-
 for i, char in enumerate(set(extensive_set)): #loops through index of each unique element in extensive text
     char_to_num[char] = i #sets dictionary value mapped to its index
 print(char_to_num)
@@ -165,8 +161,6 @@ def every_letter(extensive_text):
 print(f'These are the duplicates:\n{df.loc[df.duplicated()]}') #empty no duplicates in df
 
 df = df.drop(columns="app_id")
-
-#df = df.drop(columns="extensive") #dropping extensive too to support tensor conversion
 
 df.replace('\\N', np.nan, inplace=True) #replace null values
 
@@ -190,24 +184,23 @@ class MyDataset(Dataset):
         
         genre = df.iloc[index,1:11]
         genre = torch.tensor(genre,dtype = torch.float32)
-        print(genre)
+        #print(genre)
 
         character = nn.functional.one_hot(item_tensor, num_classes=59)
-        print(character)
+        #print(character)
     
         return character, genre
         
-
 df.info()
 
 def padding_batch(batch):
     return pad_sequence(batch, batch_first=True)
     
 training_dataset = MyDataset(df[:11836]) #80 percent for training
-training_dataloader = DataLoader(training_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch) 
+training_dataloader = DataLoader(training_dataset,batch_size=1,shuffle=True) 
 
 testing_dataset = MyDataset(df[11836:]) #20 percent for testing
-testing_dataloader = DataLoader(testing_dataset,batch_size=500,shuffle=True, collate_fn=padding_batch)
+testing_dataloader = DataLoader(testing_dataset,batch_size=1,shuffle=True)
 
 #proof that the tensors in the dataloaders are all properly created.. be able to loop through both dataloaders
 
@@ -231,7 +224,7 @@ plt.hist(stored_training_char, bins=len(char_to_num), color='red', alpha=0.7, ed
 plt.xlabel('Index of Character')
 plt.ylabel('Occurrences of Characters')
 plt.title('Character Occurrence in Training Dataset')
-#plt.show()
+plt.show()
 
 #using testing_char data and graphing when each character occurs
 plt.figure(figsize=(14, 4))
@@ -239,7 +232,7 @@ plt.hist(stored_testing_char, bins=len(char_to_num), color='pink', alpha=0.7, ed
 plt.xlabel('Index of Character')
 plt.ylabel('Occurrences of Characters')
 plt.title('Character Occurrence in Testing Dataset')
-#plt.show()
+plt.show()
 
 
 #class that inherits from Pytorch
@@ -251,16 +244,15 @@ class myRNN(nn.Module):
         self.input_size = input_size
         self.output_size = output_size
         
-        #input,hidden,output
-        self.i2o = nn.Linear(59 + self.hidden_size,9) 
+        #(input,hidden,output)
+        self.i2o = nn.Linear(59 + self.hidden_size,60) 
         self.i2h = nn.Linear(59+ self.hidden_size,self.hidden_size)  
-        self.o2o = nn.Linear(9 + self.hidden_size,9) 
+        self.o2o = nn.Linear(60 + self.hidden_size,10) 
         self.softmax = nn.Softmax(dim=1)
         self.activation = nn.Tanh()
         #self.lstm = nn.LSTM(59,self.hidden_size,3,batch_first=True)
 
     def forward(self,input,hidden):
-
         combined = torch.cat((input,hidden),1)
         output = self.i2o(combined)
         hidden = self.i2h(combined)
@@ -270,26 +262,24 @@ class myRNN(nn.Module):
         output = self.softmax(output)        
         return output,hidden
     
-        #goes thro layers 
+        """forward code: tested for LSMT implementation, will revist and refine moving forward"""
         #lstm_out, hidden = self.lstm(input,hidden)
         #lstm_out_last = lstm_out[:,-1,:]
-        #"""Check"""
         # combined = torch.cat((lstm_out_last,input[:,-1,:]),dim=1)
         # output = self.i2o(combined)
         # output = self.activation(output)
         # hidden = self.i2h(combined)
         # hidden = self.activation(hidden)
-        # """check"""
         # out_combined = torch.cat((output,lstm_out_last),dim=1)
         # output = self.o2o(out_combined)
         # output = self.activation(output)
         # output = self.softmax(output)
-        # # combined = torch.cat((input,hidden),1)
-        # # output = self.i2o(combined)""""
+
 
     def initHidden(self):
         return torch.zeros(1,self.hidden_size)
-        ## need clarification with lstm
+        
+        """scratched code tested when implementing LSTM: will revist and refine moving forward"""
         # h0 = torch.zeros(1, batch_size, self.hidden_size)
         # c0 = torch.zeros(1, batch_size, self.hidden_size)
         # return h0,c0
@@ -298,25 +288,29 @@ class myRNN(nn.Module):
 #in,out,hidden size
 rnn = myRNN(59,10,9) 
 loss_fn = nn.CrossEntropyLoss()
-optimizer = optim.Adam(rnn.parameters(), lr = 0.01) 
-epochs = 10000
+optimizer = optim.Adam(rnn.parameters(), lr = 0.1) 
+epochs = 5
 
 #training_loss_lst = []
 
-"""Training loop: get checked"""
-
+"""Training loop"""
 for e in range(epochs): 
     for value, genre in training_dataloader:
+        hidden = rnn.initHidden()
         for i in range(len(value[:,0])):
             pred, hidden = rnn(value[:,i],hidden)
+            # print(pred.shape)
+            # print(hidden.shape)
+            # print(genre.shape)
         training_loss = loss_fn(pred,genre)
-       
-        print(f'Training loss: {training_loss.item()})') #print the sqrt of training loss to see accurate loss comparison
-
+        print(f'Training loss: {training_loss.item()}') #print the sqrt of training loss to see accurate loss comparison
         training_loss.backward() #calculates slope to guide optimizer
         optimizer.step() #updating weights
         optimizer.zero_grad() #resets optimizer for epochs
 
+
+
+        """training code: tested when implementing LSTM will revist and refine moving forward"""
         # batch_size = value.shape[0]
         # h0,c0 = rnn.initHidden(batch_size)
         # pred,_ = rnn(value,(h0,c0))
@@ -334,10 +328,12 @@ for value, genre in testing_dataloader:
     testing_loss = loss_fn(pred,genre)
     print(f'Testing loss: {testing_loss.item()}')
 
+
+
+    """testing code: tested when implementing LSTM will revist and refine moving forward"""
     # batch_size = value.shape[0]
     # h0,c0 = rnn.initHidden(batch_size)
     # pred,_ = rnn(value,(h0,c0))
     # testing_loss = loss_fn(pred, genre)
-
     # print(f'Testing loss: {testing_loss.item()}')
 
