@@ -3,7 +3,7 @@ import pandas as pd
 import torch.nn as nn
 import torch.optim as optim
 import torch
-from sklearn.preprocessing import StandardScaler
+#from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
@@ -40,6 +40,7 @@ df1 = df1.dropna(subset=['app_id'])
 df1 = df1[df1['extensive'].apply(lambda x: x.encode('ascii', 'ignore').decode('ascii') == x)] #drop non ascii values
 
 df1.info()
+
 
 df2 = pd.read_csv("genres.csv")
 print(df2["app_id"].unique())
@@ -245,29 +246,34 @@ plt.show()
 class myRNN(nn.Module):
     def __init__(self, input_size, hidden_size,output_size):
         super(myRNN,self).__init__()
-        self.hidden_size = 10 #make bigger
+        self.hidden_size = 50
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.output_size = output_size
         
         #(input,hidden,output)
-        self.i2o = nn.Linear(59 + self.hidden_size,60)  #make 60 bigger
-        self.i2h = nn.Linear(59+ self.hidden_size,self.hidden_size)  
-        #self.i2h2 multiple blue stacks w8 d1 slides
-        self.o2o = nn.Linear(60 + self.hidden_size,10) 
+        self.i2o = nn.Linear(59 + self.hidden_size,100) #can inc 60
+        self.i2h = nn.Linear(59 + self.hidden_size,self.hidden_size)
+        self.i2h2 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.i2h3 = nn.Linear(self.hidden_size,self.hidden_size)
+        self.o2o = nn.Linear(100 + self.hidden_size,10) 
         self.softmax = nn.Softmax(dim=1)
         self.activation = nn.Tanh()
-        #self.lstm = nn.LSTM(59,self.hidden_size,3,batch_first=True)
+        self.dropout = nn.Dropout(p=0.5)
 
     def forward(self,input,hidden):
         combined = torch.cat((input,hidden),1)
         output = self.i2o(combined)
         hidden = self.i2h(combined)
+        hidden = self.i2h2(hidden)
+        hidden = self.i2h3(hidden)
         hidden = self.activation(hidden)
+        #hidden = self.dropout(hidden)
         out_combined = torch.cat((output,hidden),dim=1)
-        output = self.o2o(out_combined)
-        output = self.softmax(output)        
-        return output,hidden
+        output = self.o2o(out_combined)     
+        output = self.softmax(output)
+        output = self.dropout(output)    
+        return output,hidden   
 
     def initHidden(self):
         return torch.zeros(1,self.hidden_size)
@@ -278,7 +284,13 @@ rnn = myRNN(59,10,9)
 loss_fn = nn.CrossEntropyLoss()
 optimizer = optim.Adam(rnn.parameters(), lr = 0.001) 
 epochs = 2
+#in,hidden_size, out
+rnn = myRNN(59,50,10) 
+loss_fn = nn.CrossEntropyLoss()
+optimizer = optim.Adam(rnn.parameters(), lr = 0.001)
+epochs = 5
 
+rnn.train(True)
 #training_loss_lst = []
 
 """Training loop"""
@@ -300,6 +312,8 @@ for e in range(epochs):
 
 #         """training code: tested when implementing LSTM will revist and refine moving forward"""
 #         # batch_size = value.shape[0]
+        """training code: tested when implementing LSTM will revist and refine moving forward"""
+        # batch_size = value.shape[0]
         # h0,c0 = rnn.initHidden(batch_size)
         # pred,_ = rnn(value,(h0,c0))
         # training_loss = loss_fn(pred, genre)
@@ -311,6 +325,7 @@ for e in range(epochs):
 tested_values = 0
 correct_pred = 0
 genres = ["Action", "Adventure", "Casual", "Indie", "Multiplayer", "RPG", "Racing", "Simulation", "Sports", "Strategy"]
+rnn.eval()
 
 """Testing loop"""
 for value, genre in testing_dataloader:
@@ -337,7 +352,6 @@ for value, genre in testing_dataloader:
 
     testing_loss = loss_fn(pred,genre)
     print(f'Testing loss: {testing_loss.item()}')
-
 
 
     """testing code: tested when implementing LSTM will revist and refine moving forward"""
