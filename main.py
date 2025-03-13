@@ -3,14 +3,14 @@ import pandas as pd
 import torch.nn as nn
 import torch.optim as optim
 import torch
-from sklearn.preprocessing import StandardScaler
+#from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
-import math
-import csv
-import re
+#import math
+#import csv
+#import re
 from torch.nn.utils.rnn import pad_sequence #padding because of error that dataloader has different variable lengths
 
 
@@ -239,58 +239,46 @@ plt.show()
 class myRNN(nn.Module):
     def __init__(self, input_size, hidden_size,output_size):
         super(myRNN,self).__init__()
-        self.hidden_size = 10
+        self.hidden_size = 50
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.output_size = output_size
         
         #(input,hidden,output)
-        self.i2o = nn.Linear(59 + self.hidden_size,60) 
-        self.i2h = nn.Linear(59+ self.hidden_size,self.hidden_size)  
-        self.o2o = nn.Linear(60 + self.hidden_size,10) 
+        self.i2o = nn.Linear(59 + self.hidden_size,100) #can inc 60
+        self.i2h = nn.Linear(59 + self.hidden_size,self.hidden_size)
+        self.i2h2 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.i2h3 = nn.Linear(self.hidden_size,self.hidden_size)
+        self.o2o = nn.Linear(100 + self.hidden_size,10) 
         self.softmax = nn.Softmax(dim=1)
         self.activation = nn.Tanh()
-        #self.lstm = nn.LSTM(59,self.hidden_size,3,batch_first=True)
+        self.dropout = nn.Dropout(p=0.5)
 
     def forward(self,input,hidden):
         combined = torch.cat((input,hidden),1)
         output = self.i2o(combined)
         hidden = self.i2h(combined)
+        hidden = self.i2h2(hidden)
+        hidden = self.i2h3(hidden)
         hidden = self.activation(hidden)
+        #hidden = self.dropout(hidden)
         out_combined = torch.cat((output,hidden),dim=1)
         output = self.o2o(out_combined)
-        output = self.softmax(output)        
-        return output,hidden
-    
-        """forward code: tested for LSMT implementation, will revist and refine moving forward"""
-        #lstm_out, hidden = self.lstm(input,hidden)
-        #lstm_out_last = lstm_out[:,-1,:]
-        # combined = torch.cat((lstm_out_last,input[:,-1,:]),dim=1)
-        # output = self.i2o(combined)
-        # output = self.activation(output)
-        # hidden = self.i2h(combined)
-        # hidden = self.activation(hidden)
-        # out_combined = torch.cat((output,lstm_out_last),dim=1)
-        # output = self.o2o(out_combined)
-        # output = self.activation(output)
-        # output = self.softmax(output)
-
+        output = self.softmax(output)
+        output = self.dropout(output)    
+        return output,hidden   
 
     def initHidden(self):
         return torch.zeros(1,self.hidden_size)
         
-        """scratched code tested when implementing LSTM: will revist and refine moving forward"""
-        # h0 = torch.zeros(1, batch_size, self.hidden_size)
-        # c0 = torch.zeros(1, batch_size, self.hidden_size)
-        # return h0,c0
 
-
-#in,out,hidden size
-rnn = myRNN(59,10,9) 
+#in,hidden_size, out
+rnn = myRNN(59,50,10) 
 loss_fn = nn.CrossEntropyLoss()
-optimizer = optim.Adam(rnn.parameters(), lr = 0.1) 
+optimizer = optim.Adam(rnn.parameters(), lr = 0.001)
 epochs = 5
 
+rnn.train(True)
 #training_loss_lst = []
 
 """Training loop"""
@@ -309,7 +297,6 @@ for e in range(epochs):
         optimizer.zero_grad() #resets optimizer for epochs
 
 
-
         """training code: tested when implementing LSTM will revist and refine moving forward"""
         # batch_size = value.shape[0]
         # h0,c0 = rnn.initHidden(batch_size)
@@ -320,6 +307,8 @@ for e in range(epochs):
 #plt.plot(training_loss_lst)
 #plt.show()
 
+rnn.eval()
+
 """Testing loop"""
 for value, genre in testing_dataloader:
     hidden = rnn.initHidden()
@@ -327,7 +316,6 @@ for value, genre in testing_dataloader:
         pred, hidden = rnn(value[:,i],hidden)
     testing_loss = loss_fn(pred,genre)
     print(f'Testing loss: {testing_loss.item()}')
-
 
 
     """testing code: tested when implementing LSTM will revist and refine moving forward"""
