@@ -239,17 +239,18 @@ plt.show()
 class myRNN(nn.Module):
     def __init__(self, input_size, hidden_size,output_size):
         super(myRNN,self).__init__()
-        self.hidden_size = 50
+        self.hidden_size = 150
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.output_size = output_size
         
         #(input,hidden,output)
-        self.i2o = nn.Linear(59 + self.hidden_size,100) #can inc 60
+        self.i2o = nn.Linear(59 + self.hidden_size,90) #can inc 60
         self.i2h = nn.Linear(59 + self.hidden_size,self.hidden_size)
         self.i2h2 = nn.Linear(self.hidden_size, self.hidden_size)
         self.i2h3 = nn.Linear(self.hidden_size,self.hidden_size)
-        self.o2o = nn.Linear(100 + self.hidden_size,10) 
+        #self.i2h4 = nn.Linear(self.hidden_size,self.hidden_size) 
+        self.o2o = nn.Linear(90 + self.hidden_size,10) 
         self.softmax = nn.Softmax(dim=1)
         self.activation = nn.Tanh()
         self.dropout = nn.Dropout(p=0.5)
@@ -260,6 +261,7 @@ class myRNN(nn.Module):
         hidden = self.i2h(combined)
         hidden = self.i2h2(hidden)
         hidden = self.i2h3(hidden)
+       #hidden = self.i2h4(hidden)
         hidden = self.activation(hidden)
         #hidden = self.dropout(hidden)
         out_combined = torch.cat((output,hidden),dim=1)
@@ -273,10 +275,10 @@ class myRNN(nn.Module):
         
 
 #in,hidden_size, out
-rnn = myRNN(59,50,10) 
+rnn = myRNN(59,150,10) 
 loss_fn = nn.CrossEntropyLoss()
 optimizer = optim.Adam(rnn.parameters(), lr = 0.001)
-epochs = 5
+epochs = 10
 
 rnn.train(True)
 #training_loss_lst = []
