@@ -278,17 +278,10 @@ class myRNN(nn.Module):
     def initHidden(self):
         return torch.zeros(1,self.hidden_size)
         
-
-#in,out,hidden size
-rnn = myRNN(59,10,9) 
-loss_fn = nn.CrossEntropyLoss()
-optimizer = optim.Adam(rnn.parameters(), lr = 0.001) 
-epochs = 2
-#in,hidden_size, out
 rnn = myRNN(59,50,10) 
 loss_fn = nn.CrossEntropyLoss()
 optimizer = optim.Adam(rnn.parameters(), lr = 0.001)
-epochs = 5
+epochs = 3
 
 rnn.train(True)
 #training_loss_lst = []
