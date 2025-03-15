@@ -24,9 +24,7 @@ class myRNN(nn.Module):
         self.dropout = nn.Dropout(p=0.5)
 
     def forward(self,input,hidden):
-
-        combined = torch.cat((input,hidden))
-        
+        combined = torch.cat((input,hidden),1)
         output = self.i2o(combined)
         hidden = self.i2h(combined)
         hidden = self.i2h2(hidden)
@@ -41,4 +39,5 @@ class myRNN(nn.Module):
         return output,hidden   
 
     def initHidden(self):
-        return torch.zeros(1, self.hidden_size)
+        return torch.zeros(1,self.hidden_size)
+        
