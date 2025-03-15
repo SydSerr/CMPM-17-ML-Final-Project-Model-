@@ -155,6 +155,7 @@ def every_letter(extensive_text):
         num_list.append(char_to_num[char])  #going thorugh each character from text to append value mapped in dictionary to list 
     return num_list
 
+
 print(f'These are the duplicates:\n{df.loc[df.duplicated()]}') #empty no duplicates in df
 
 df = df.drop(columns="app_id")
@@ -166,6 +167,7 @@ df = df.dropna(ignore_index = True)
 df.to_csv("cleaned_dataset.csv")
 
 df.info()
+
 
 class MyDataset(Dataset): 
     def __init__(self,data):
@@ -236,7 +238,7 @@ plt.show()
 rnn = myRNN(59,150,10) 
 loss_fn = nn.CrossEntropyLoss()
 optimizer = optim.Adam(rnn.parameters(), lr = 0.001)
-epochs = 1
+epochs = 3
 
 rnn.train(True)
 #training_loss_lst = []
