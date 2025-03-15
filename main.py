@@ -1,16 +1,15 @@
 # creating main file for projectgit
+from myRNN import myRNN
 import pandas as pd
 import torch.nn as nn
 import torch.optim as optim
 import torch
-from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
+from torch.nn.utils.rnn import pad_sequence #padding because of error that dataloader has different variable lengths
 
-import csv
-import re
 
 df1 = pd.read_csv("descriptions.csv", on_bad_lines="skip") #skip glitched lines
 df1.info()
@@ -33,7 +32,6 @@ df1 = df1[df1['extensive'].apply(lambda x: x.encode('ascii', 'ignore').decode('a
 
 df1.info()
 
-
 df2 = pd.read_csv("genres.csv")
 print(df2["app_id"].unique())
 df2.info()
@@ -44,7 +42,122 @@ df2.info()
 
 df = pd.concat([df1,df2],axis=1)
 print(df)
+
 df.info()
+
+print(f'What null vals are there?\n{df.loc[df.isna().any(axis=1)]}')
+df = df.dropna(ignore_index=True) 
+print(f'What null vals are there?\n{df.loc[df.isna().any(axis=1)]}')
+
+print(f'Initial unique vals in genre col\n{df["genre"].unique()}')
+#print(f'Initial unique vals in extensive col\n{df["extensive"].unique()}')
+
+#clearing "genre" col of bad strings: translating into English 
+df["genre"] = df["genre"].replace("Экшены","Action")
+df["genre"] = df["genre"].replace("Бесплатные","Free to Play")
+df["genre"] = df["genre"].replace("Стратегии","Strategy")
+df["genre"] = df["genre"].replace("Ação","Action")
+df["genre"] = df["genre"].replace("Приключенческие игры","Adventure")
+df["genre"] = df["genre"].replace("Ролевые игры","RPG")
+df["genre"] = df["genre"].replace("Rol","RPG")
+df["genre"] = df["genre"].replace("Akční","Action")
+df["genre"] = df["genre"].replace("Dobrodružné","Adventure")
+df["genre"] = df["genre"].replace("动作","Action")
+df["genre"] = df["genre"].replace("策略","Strategy")
+df["genre"] = df["genre"].replace("角色扮演","RPG")
+df["genre"] = df["genre"].replace("Acción","Action")
+df["genre"] = df["genre"].replace("Aventure","Adventure")
+df["genre"] = df["genre"].replace("Симуляторы","Simulation")
+df["genre"] = df["genre"].replace("Гонки","Racing")
+df["genre"] = df["genre"].replace("Спортивные игры","Sports")
+df["genre"] = df["genre"].replace("Aventura","Adventure")
+df["genre"] = df["genre"].replace("Многопользовательские игры","Multiplayer")
+df["genre"] = df["genre"].replace("Stratégie","Strategy")
+df["genre"] = df["genre"].replace("Carreras","Racing")
+df["genre"] = df["genre"].replace("Deportes","Sports")
+df["genre"] = df["genre"].replace("Niezależne","Indie")
+df["genre"] = df["genre"].replace("Strategie","Strategy")
+df["genre"] = df["genre"].replace("模拟","Simulation")
+df["genre"] = df["genre"].replace("アクション","Action")
+df["genre"] = df["genre"].replace("アドベンチャー","Adventure")
+df["genre"] = df["genre"].replace("インディー","Indie")
+df["genre"] = df["genre"].replace("Simulationen","Simulation")
+df["genre"] = df["genre"].replace("Rollenspiel","RPG")
+df["genre"] = df["genre"].replace("冒险","Adventure")
+df["genre"] = df["genre"].replace("Eventyr","Adventure")
+df["genre"] = df["genre"].replace("Strategi","Strategy")
+df["genre"] = df["genre"].replace("Казуальные игры","Casual")
+df["genre"] = df["genre"].replace("Avventura","Adventure")
+df["genre"] = df["genre"].replace("Azione","Action")
+df["genre"] = df["genre"].replace("Actie","Action")
+df["genre"] = df["genre"].replace("Пригоди","Adventure")
+df["genre"] = df["genre"].replace("Estrategia","Strategy")
+df["genre"] = df["genre"].replace("Roolipelit","RPG")
+df["genre"] = df["genre"].replace("Seikkailu","Adventure")
+df["genre"] = df["genre"].replace("Strategia","Strategy")
+df["genre"] = df["genre"].replace("Ранний доступ","Early Access")
+df["genre"] = df["genre"].replace("Akcja","Action")
+df["genre"] = df["genre"].replace("Инди","Indie")
+df["genre"] = df["genre"].replace("独立","Indie")
+df["genre"] = df["genre"].replace("Massively Multiplayer","Multiplayer")
+df["genre"] = df["genre"].replace("Free To Play","Free to Play")
+df["genre"] = df["genre"].replace("Abenteuer","Adventure")
+df["genre"] = df["genre"].replace("Indépendant","Indie")
+
+#Replace extensive special characters
+df["extensive"] = df["extensive"].replace(r"[`(){}[\]|_\b\\]", "", regex = True) #fixing the characters
+
+print(f'Final unique vals in genre col\n{df["genre"].unique()}')
+
+#one hot encode the genre column
+df = pd.get_dummies(df,columns=["genre"])
+
+#performed class distribution analysis for "genre" and dropped extra genre cols not benefitting model
+df = df.drop(columns="genre_Accounting")
+df = df.drop(columns="genre_Animation & Modeling")
+df = df.drop(columns="genre_Audio Production")
+df = df.drop(columns="genre_Design & Illustration")
+df = df.drop(columns="genre_Early Access")
+df = df.drop(columns="genre_Free to Play")
+df = df.drop(columns="genre_Game Development")
+df = df.drop(columns="genre_Gore")
+df = df.drop(columns="genre_Movie")
+df = df.drop(columns="genre_Nudity")
+df = df.drop(columns="genre_Photo Editing")
+df = df.drop(columns="genre_Sexual Content")
+df = df.drop(columns="genre_Software Training")
+df = df.drop(columns="genre_Utilities")
+df = df.drop(columns="genre_Video Production")
+df = df.drop(columns="genre_Violent")
+df = df.drop(columns="genre_Web Publishing")
+df = df.drop(columns="genre_Education")
+
+#one hot encode the letters as numbers loop through text
+#make a function
+char_to_num = {}
+extensive_set = set()
+
+for string in df['extensive']: #for each string int he extensive column add it to the set
+    string = string.lower()
+    for char in string:
+        extensive_set.add(char)
+    
+for i, char in enumerate(set(extensive_set)): #loops through index of each unique element in extensive text
+    char_to_num[char] = i #sets dictionary value mapped to its index
+print(char_to_num)
+
+def every_letter(extensive_text):
+    if isinstance(extensive_text, pd.Series):
+        extensive_text = extensive_text.iloc[0]  # fix error with series from method not being interpreted
+    extensive_text = extensive_text.lower() #remove error with duplicate letters from uppercase letters
+    num_list = [] #new list to store numbers for each character
+    for char in extensive_text:
+        num_list.append(char_to_num[char])  #going thorugh each character from text to append value mapped in dictionary to list 
+    return num_list
+
+print(f'These are the duplicates:\n{df.loc[df.duplicated()]}') #empty no duplicates in df
+
+df = df.drop(columns="app_id")
 
 df.replace('\\N', np.nan, inplace=True) #replace null values
 
@@ -119,68 +232,30 @@ plt.title('Character Occurrence in Testing Dataset')
 plt.show()
 
 
-#class that inherits from Pytorch
-class myRNN(nn.Module):
-    def __init__(self, input_size, hidden_size,output_size):
-        super(myRNN,self).__init__()
-        self.hidden_size = 150
-        self.hidden_size = hidden_size
-        self.input_size = input_size
-        self.output_size = output_size
-        
-        #(input,hidden,output)
-        self.i2o = nn.Linear(59 + self.hidden_size,90) #can inc 60
-        self.i2h = nn.Linear(59 + self.hidden_size,self.hidden_size)
-        self.i2h2 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.i2h3 = nn.Linear(self.hidden_size,self.hidden_size)
-        #self.i2h4 = nn.Linear(self.hidden_size,self.hidden_size) 
-        self.o2o = nn.Linear(90 + self.hidden_size,10) 
-        self.softmax = nn.Softmax(dim=1)
-        self.activation = nn.Tanh()
-        self.dropout = nn.Dropout(p=0.5)
-
-    def forward(self,input,hidden):
-        combined = torch.cat((input,hidden),1)
-        output = self.i2o(combined)
-        hidden = self.i2h(combined)
-        hidden = self.i2h2(hidden)
-        hidden = self.i2h3(hidden)
-       #hidden = self.i2h4(hidden)
-        hidden = self.activation(hidden)
-        #hidden = self.dropout(hidden)
-        out_combined = torch.cat((output,hidden),dim=1)
-        output = self.o2o(out_combined)
-        output = self.softmax(output)
-        output = self.dropout(output)    
-        return output,hidden   
-
-    def initHidden(self):
-        return torch.zeros(1,self.hidden_size)
-        
-
 #in,hidden_size, out
 rnn = myRNN(59,150,10) 
 loss_fn = nn.CrossEntropyLoss()
 optimizer = optim.Adam(rnn.parameters(), lr = 0.001)
-epochs = 10
+epochs = 1
 
 rnn.train(True)
 #training_loss_lst = []
 
 """Training loop"""
-for e in range(epochs): 
-    for value, genre in training_dataloader:
-        hidden = rnn.initHidden()
-        for i in range(len(value[:,0])):
-            pred, hidden = rnn(value[:,i],hidden)
-            # print(pred.shape)
-            # print(hidden.shape)
-            # print(genre.shape)
-        training_loss = loss_fn(pred,genre)
-        print(f'Training loss: {training_loss.item()}') #print the sqrt of training loss to see accurate loss comparison
-        training_loss.backward() #calculates slope to guide optimizer
-        optimizer.step() #updating weights
-        optimizer.zero_grad() #resets optimizer for epochs
+if __name__ == '__main__':
+    for e in range(epochs): 
+        for value, genre in training_dataloader:
+            hidden = rnn.initHidden()
+            for i in range(len(value[:,0])):
+                pred, hidden = rnn(value[:,i],hidden)
+                # print(pred.shape)
+                # print(hidden.shape)
+                # print(genre.shape)
+            training_loss = loss_fn(pred,genre)
+            print(f'Training loss: {training_loss.item()}') #print the sqrt of training loss to see accurate loss comparison
+            training_loss.backward() #calculates slope to guide optimizer
+            optimizer.step() #updating weights
+            optimizer.zero_grad() #resets optimizer for epochs
 
 
         """training code: tested when implementing LSTM will revist and refine moving forward"""
@@ -189,38 +264,43 @@ for e in range(epochs):
         # pred,_ = rnn(value,(h0,c0))
         # training_loss = loss_fn(pred, genre)
         # print(f'Training loss: {training_loss.item()}')
-    
-#plt.plot(training_loss_lst)
-#plt.show()
 
-rnn.eval()
+    #plt.plot(training_loss_lst)
+    #plt.show()
 
-tested_values = 0
-correct_pred = 0
-genres = ["Action", "Adventure", "Casual", "Indie", "Multiplayer", "RPG", "Racing", "Simulation", "Sports", "Strategy"]
+    rnn.eval()
 
-"""Testing loop"""
-for value, genre in testing_dataloader:
+    tested_values = 0
+    correct_pred = 0
+    genres = ["Action", "Adventure", "Casual", "Indie", "Multiplayer", "RPG", "Racing", "Simulation", "Sports", "Strategy"]
 
-    if tested_values == 100:
-        break
-    hidden = rnn.initHidden()
-    for i in range(value.shape[1]):
-        pred, hidden = rnn(value[:,i],hidden)
-    print(pred)
-    print(genre)
+    """Testing loop"""
+    for value, genre in testing_dataloader:
 
-    max_index = torch.argmax(pred).item()
-    true_index = torch.argmax(genre).item()
+        if tested_values == 100:
+            break
+        hidden = rnn.initHidden()
+        for i in range(value.shape[1]):
+            pred, hidden = rnn(value[:,i],hidden)
+        #print(pred)
+        #print(genre)
 
-    print(max_index == true_index)
+        max_index = torch.argmax(pred).item()
+        true_index = torch.argmax(genre).item()
 
-    if max_index == true_index:
-        correct_pred += 1
-    tested_values += 1
+        print(max_index == true_index)
 
-    print(f"Correct: {correct_pred} / Total: {tested_values}")
-    print(f"Predicted genre: {genres[max_index]}, Correct genre: {genres[true_index]}")
+        if max_index == true_index:
+            correct_pred += 1
+        tested_values += 1
 
-    testing_loss = loss_fn(pred,genre)
-    print(f'Testing loss: {testing_loss.item()}')
+        print(f"Correct: {correct_pred} / Total: {tested_values}")
+        print(f"Predicted genre: {genres[max_index]}, Correct genre: {genres[true_index]}")
+
+        testing_loss = loss_fn(pred,genre)
+        print(f'Testing loss: {testing_loss.item()}')
+
+
+#def test_input_description(input):
+
+torch.save(rnn.state_dict(),"demo.pth")
