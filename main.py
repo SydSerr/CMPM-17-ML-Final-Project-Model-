@@ -1,16 +1,13 @@
 # creating main file for projectgit
+from myRNN import myRNN
 import pandas as pd
 import torch.nn as nn
 import torch.optim as optim
 import torch
-#from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
-#import math
-#import csv
-#import re
 from torch.nn.utils.rnn import pad_sequence #padding because of error that dataloader has different variable lengths
 
 
@@ -136,7 +133,7 @@ df = df.drop(columns="genre_Web Publishing")
 df = df.drop(columns="genre_Education")
 
 #one hot encode the letters as numbers loop through text
-
+#make a function
 char_to_num = {}
 extensive_set = set()
 
@@ -235,68 +232,30 @@ plt.title('Character Occurrence in Testing Dataset')
 plt.show()
 
 
-#class that inherits from Pytorch
-class myRNN(nn.Module):
-    def __init__(self, input_size, hidden_size,output_size):
-        super(myRNN,self).__init__()
-        self.hidden_size = 150
-        self.hidden_size = hidden_size
-        self.input_size = input_size
-        self.output_size = output_size
-        
-        #(input,hidden,output)
-        self.i2o = nn.Linear(59 + self.hidden_size,90) #can inc 60
-        self.i2h = nn.Linear(59 + self.hidden_size,self.hidden_size)
-        self.i2h2 = nn.Linear(self.hidden_size, self.hidden_size)
-        self.i2h3 = nn.Linear(self.hidden_size,self.hidden_size)
-        #self.i2h4 = nn.Linear(self.hidden_size,self.hidden_size) 
-        self.o2o = nn.Linear(90 + self.hidden_size,10) 
-        self.softmax = nn.Softmax(dim=1)
-        self.activation = nn.Tanh()
-        self.dropout = nn.Dropout(p=0.5)
-
-    def forward(self,input,hidden):
-        combined = torch.cat((input,hidden),1)
-        output = self.i2o(combined)
-        hidden = self.i2h(combined)
-        hidden = self.i2h2(hidden)
-        hidden = self.i2h3(hidden)
-       #hidden = self.i2h4(hidden)
-        hidden = self.activation(hidden)
-        #hidden = self.dropout(hidden)
-        out_combined = torch.cat((output,hidden),dim=1)
-        output = self.o2o(out_combined)
-        output = self.softmax(output)
-        output = self.dropout(output)    
-        return output,hidden   
-
-    def initHidden(self):
-        return torch.zeros(1,self.hidden_size)
-        
-
 #in,hidden_size, out
 rnn = myRNN(59,150,10) 
 loss_fn = nn.CrossEntropyLoss()
 optimizer = optim.Adam(rnn.parameters(), lr = 0.001)
-epochs = 10
+epochs = 1
 
 rnn.train(True)
 #training_loss_lst = []
 
 """Training loop"""
-for e in range(epochs): 
-    for value, genre in training_dataloader:
-        hidden = rnn.initHidden()
-        for i in range(len(value[:,0])):
-            pred, hidden = rnn(value[:,i],hidden)
-            # print(pred.shape)
-            # print(hidden.shape)
-            # print(genre.shape)
-        training_loss = loss_fn(pred,genre)
-        print(f'Training loss: {training_loss.item()}') #print the sqrt of training loss to see accurate loss comparison
-        training_loss.backward() #calculates slope to guide optimizer
-        optimizer.step() #updating weights
-        optimizer.zero_grad() #resets optimizer for epochs
+if __name__ == '__main__':
+    for e in range(epochs): 
+        for value, genre in training_dataloader:
+            hidden = rnn.initHidden()
+            for i in range(len(value[:,0])):
+                pred, hidden = rnn(value[:,i],hidden)
+                # print(pred.shape)
+                # print(hidden.shape)
+                # print(genre.shape)
+            training_loss = loss_fn(pred,genre)
+            print(f'Training loss: {training_loss.item()}') #print the sqrt of training loss to see accurate loss comparison
+            training_loss.backward() #calculates slope to guide optimizer
+            optimizer.step() #updating weights
+            optimizer.zero_grad() #resets optimizer for epochs
 
 
         """training code: tested when implementing LSTM will revist and refine moving forward"""
@@ -305,38 +264,43 @@ for e in range(epochs):
         # pred,_ = rnn(value,(h0,c0))
         # training_loss = loss_fn(pred, genre)
         # print(f'Training loss: {training_loss.item()}')
-    
-#plt.plot(training_loss_lst)
-#plt.show()
 
-rnn.eval()
+    #plt.plot(training_loss_lst)
+    #plt.show()
 
-tested_values = 0
-correct_pred = 0
-genres = ["Action", "Adventure", "Casual", "Indie", "Multiplayer", "RPG", "Racing", "Simulation", "Sports", "Strategy"]
+    rnn.eval()
 
-"""Testing loop"""
-for value, genre in testing_dataloader:
+    tested_values = 0
+    correct_pred = 0
+    genres = ["Action", "Adventure", "Casual", "Indie", "Multiplayer", "RPG", "Racing", "Simulation", "Sports", "Strategy"]
 
-    if tested_values == 200:
-        break
-    hidden = rnn.initHidden()
-    for i in range(value.shape[1]):
-        pred, hidden = rnn(value[:,i],hidden)
-    print(pred)
-    print(genre)
+    """Testing loop"""
+    for value, genre in testing_dataloader:
 
-    max_index = torch.argmax(pred).item()
-    true_index = torch.argmax(genre).item()
+        if tested_values == 100:
+            break
+        hidden = rnn.initHidden()
+        for i in range(value.shape[1]):
+            pred, hidden = rnn(value[:,i],hidden)
+        #print(pred)
+        #print(genre)
 
-    print(max_index == true_index)
+        max_index = torch.argmax(pred).item()
+        true_index = torch.argmax(genre).item()
 
-    if max_index == true_index:
-        correct_pred += 1
-    tested_values += 1
+        print(max_index == true_index)
 
-    print(f"Correct: {correct_pred} / Total: {tested_values}")
-    print(f"Predicted genre: {genres[max_index]}, Correct genre: {genres[true_index]}")
+        if max_index == true_index:
+            correct_pred += 1
+        tested_values += 1
 
-    testing_loss = loss_fn(pred,genre)
-    print(f'Testing loss: {testing_loss.item()}')
+        print(f"Correct: {correct_pred} / Total: {tested_values}")
+        print(f"Predicted genre: {genres[max_index]}, Correct genre: {genres[true_index]}")
+
+        testing_loss = loss_fn(pred,genre)
+        print(f'Testing loss: {testing_loss.item()}')
+
+
+#def test_input_description(input):
+
+torch.save(rnn.state_dict(),"demo.pth")
