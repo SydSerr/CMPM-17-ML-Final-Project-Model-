@@ -2,6 +2,7 @@ from myRNN import myRNN
 import torch
 import torch.nn.functional 
 from main import every_letter
+import re
 
 # Load model
 model = myRNN(59, 150, 10)
@@ -30,5 +31,6 @@ def pred_genre(user_description):
 
 if __name__ == "__main__":
     user_input = input("Enter game description!: ")
+    user_input = re.sub(r"[`(){}[\]|_\b\\‘’“”]", "", user_input)
     predicted_genre = pred_genre(user_input)  
     print(f"Predicted Genre: {predicted_genre}")
