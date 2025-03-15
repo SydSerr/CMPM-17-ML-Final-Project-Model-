@@ -318,7 +318,7 @@ genres = ["Action", "Adventure", "Casual", "Indie", "Multiplayer", "RPG", "Racin
 """Testing loop"""
 for value, genre in testing_dataloader:
 
-    if tested_values == 200:
+    if tested_values == 100:
         break
     hidden = rnn.initHidden()
     for i in range(value.shape[1]):
