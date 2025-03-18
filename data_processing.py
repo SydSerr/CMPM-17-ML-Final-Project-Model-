@@ -11,6 +11,7 @@ import pandas as pd
 import torch.nn as nn
 import torch
 
+"""commented out print() and .info for demo efficency purposes. But used for data processing"""
 
 df1 = pd.read_csv("descriptions.csv", on_bad_lines="skip") #skip glitched lines
 #df1.info()
